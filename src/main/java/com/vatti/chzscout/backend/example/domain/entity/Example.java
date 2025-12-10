@@ -1,6 +1,6 @@
 package com.vatti.chzscout.backend.example.domain.entity;
 
-import com.vatti.chzscout.backend.common.entity.BaseEntity;
+import com.vatti.chzscout.backend.common.domain.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
