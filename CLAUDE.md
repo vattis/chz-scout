@@ -83,12 +83,50 @@ chz-scout는 **치지직(Chzzk) 실시간 스트리밍 추천 Discord 챗봇**�
 
 이 프로젝트는 클린 아키텍처를 따르며, 다음 도메인으로 구성됩니다:
 
-1. **stream**: 방송 정보 수집 및 조회
-2. **tag**: 태그 관리 및 매칭
-3. **notification**: 알림 발송 로직
-4. **user**: 사용자 관리 (Discord 연동)
-5. **infra/chzzk**: 치지직 API 통합
-6. **infra/discord**: Discord Bot 통합
+1. **auth**: 인증/인가 (Discord OAuth, JWT 토큰)
+2. **member**: 회원 관리
+3. **stream**: 방송 정보 수집 및 조회
+4. **tag**: 태그 관리 및 매칭 (MemberTag 포함)
+5. **notification**: 알림 발송 로직
+6. **infra/chzzk**: 치지직 API 통합
+7. **infra/discord**: Discord Bot 통합
+
+#### auth 도메인 구조
+
+```
+auth/
+├── application/
+│   ├── usecase/
+│   │   └── LoginUseCase.java
+│   └── service/
+│       ├── DiscordOAuthService.java    # Discord OAuth 처리
+│       └── JwtTokenService.java        # JWT 생성/검증
+├── presentation/
+│   └── AuthController.java             # /auth/discord, /auth/callback
+├── infrastructure/
+│   ├── DiscordOAuthClient.java         # Discord API 호출
+│   └── JwtTokenProvider.java           # JWT 구현체
+└── domain/
+    └── dto/
+        ├── OAuthCallbackRequest.java
+        └── TokenResponse.java
+```
+
+#### auth ↔ member 관계
+
+```
+[AuthController] ──▶ [DiscordOAuthService] ──▶ [MemberRepository]
+                            │                        │
+                    Discord OAuth 처리          Member 조회/생성
+                            │
+                            ▼
+                    [JwtTokenService]
+                            │
+                    JWT 토큰 발급
+```
+
+- auth → member 의존: 로그인 시 Member 조회/생성
+- member는 auth에 의존하지 않음
 
 ### Key Design Decisions
 
@@ -96,6 +134,90 @@ chz-scout는 **치지직(Chzzk) 실시간 스트리밍 추천 Discord 챗봇**�
 - **GPT 활용 이유**: 단순 키워드 매칭보다 자연어 이해 기반 추천이 사용자 경험 향상
 - **웹 UI 분리 이유**: Discord UI 한계로 복잡한 태그 설정은 웹으로 제공
 - **클린 아키텍처 채택**: 외부 API 의존성 격리 및 테스트 용이성 확보
+
+### Discord Authentication Flow
+
+Discord OAuth와 Bot 초대를 **동시에 처리**하여 사용자 경험을 단순화합니다.
+
+#### 인증 플로우
+
+```
+[사용자] ──① 웹사이트 방문──▶ [웹 UI]
+              │
+         ② "Discord로 시작하기" 클릭
+              │
+              ▼
+┌─────────────────────────────────────┐
+│     Discord 승인 화면 (한 번에)      │
+│                                     │
+│  ┌───────────────────────────────┐  │
+│  │ 🤖 chz-scout 봇을 추가할 서버: │  │
+│  │    [서버 선택 ▼]              │  │
+│  └───────────────────────────────┘  │
+│                                     │
+│  ┌───────────────────────────────┐  │
+│  │ 👤 다음 정보에 접근합니다:      │  │
+│  │    ✓ 사용자명, 아바타         │  │
+│  └───────────────────────────────┘  │
+│                                     │
+│         [ 승인하기 ]                 │
+└─────────────────────────────────────┘
+              │
+         ③ Callback 처리
+              │
+              ▼
+┌─────────────────────────────────────┐
+│           서버 처리                  │
+│  • Bot이 선택한 서버에 입장          │
+│  • discordId로 Member 생성/조회      │
+│  • 세션 생성 및 웹 UI 리다이렉트      │
+└─────────────────────────────────────┘
+              │
+         ④ 태그 설정 (웹 UI)
+              │
+              ▼
+[Bot] ──⑤ DM 알림 발송──▶ [사용자]
+       (같은 서버에 있으므로 가능)
+```
+
+#### OAuth + Bot 동시 초대 URL
+
+```
+https://discord.com/api/oauth2/authorize
+  ?client_id={CLIENT_ID}
+  &redirect_uri={REDIRECT_URI}
+  &response_type=code
+  &scope=identify+bot
+  &permissions=19456
+```
+
+| 파라미터 | 값 | 설명 |
+|----------|-----|------|
+| `scope` | `identify+bot` | OAuth 로그인 + 봇 초대 동시 처리 |
+| `permissions` | `19456` | Send Messages + Embed Links + Use Slash Commands |
+
+#### 필요한 OAuth Scopes
+
+| Scope | 필수 | 용도 |
+|-------|------|------|
+| `identify` | ✅ | 사용자 기본 정보 (ID, 사용자명, 아바타) |
+| `bot` | ✅ | 봇을 서버에 초대 |
+| `email` | ❌ | 선택적 - 이메일 기반 기능 시 |
+
+#### 필요한 Bot Permissions
+
+| Permission | 필수 | 용도 |
+|------------|------|------|
+| Send Messages | ✅ | 알림 메시지 발송 |
+| Embed Links | ✅ | 방송 링크 임베드 |
+| Use Slash Commands | ✅ | `/추천`, `/태그` 명령어 |
+| Read Message History | ⚠️ 권장 | 대화 컨텍스트 참조 |
+| Add Reactions | ⚠️ 권장 | 피드백 반응 |
+
+#### DM 발송 조건
+
+Bot이 사용자에게 DM을 보내려면 **공통 서버**가 필요합니다.
+OAuth + Bot 동시 초대 방식을 사용하면 사용자가 봇을 서버에 초대하므로 DM 발송이 가능해집니다.
 
 ## Tech Stack
 

@@ -1,0 +1,45 @@
+# Test Profile Configuration
+spring:
+  # H2 In-Memory Database for Testing
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  # JPA Test Settings
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+    database-platform: org.hibernate.dialect.H2Dialect
+
+  # Disable Redis for tests (mock or disable)
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+# Disable external API calls in tests
+chzzk:
+  api:
+    base-url: http://localhost:8080/mock
+    client-id: test-client-id
+    client-secret: test-client-secret
+
+discord:
+  bot:
+    token: test-bot-token
+
+openai:
+  api:
+    key: test-api-key
+
+# Logging
+logging:
+  level:
+    com.vatti.chzscout: DEBUG
+    org.hibernate.SQL: DEBUG

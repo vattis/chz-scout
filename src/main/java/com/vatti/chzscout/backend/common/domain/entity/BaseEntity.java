@@ -1,8 +1,9 @@
-package com.vatti.chzscout.backend.common.entity;
+package com.vatti.chzscout.backend.common.domain.entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import lombok.Getter;
+import org.hibernate.annotations.SoftDelete;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -10,6 +11,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @Getter
 @MappedSuperclass
 @EntityListeners(AuditingEntityListener.class)
+@SoftDelete(columnName = "deleted")
 public abstract class BaseEntity {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
