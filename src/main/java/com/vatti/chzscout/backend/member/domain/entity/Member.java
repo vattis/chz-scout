@@ -20,16 +20,16 @@ public class Member extends BaseEntity {
   @Column(name = "discord_username", nullable = false)
   private String discordUsername;
 
-  @Column(name = "email", unique = true)
+  @Column(name = "email", nullable = false, unique = true)
   private String email;
 
-  @Column(name = "email_hash", unique = true)
+  @Column(name = "email_hash", nullable = false, unique = true)
   private String emailHash;
 
-  @Column(name = "name")
+  @Column(name = "name", nullable = false)
   private String name;
 
-  @Column(name = "name_hash")
+  @Column(name = "name_hash", nullable = false)
   private String nameHash;
 
   private Member(String discordId, String discordUsername) {
