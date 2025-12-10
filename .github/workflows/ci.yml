@@ -46,6 +46,8 @@ jobs:
 
       - name: Run tests
         run: ./gradlew test
+        env:
+          SPRING_PROFILES_ACTIVE: test
 
       - name: Generate test coverage report
         run: ./gradlew jacocoTestReport
