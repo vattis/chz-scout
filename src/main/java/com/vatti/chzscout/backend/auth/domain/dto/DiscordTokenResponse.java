@@ -1,5 +1,7 @@
 package com.vatti.chzscout.backend.auth.domain.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 /**
  * Discord OAuth 2.0 토큰 응답 DTO.
  *
@@ -10,4 +12,8 @@ package com.vatti.chzscout.backend.auth.domain.dto;
  * @param scope 허용된 권한 범위
  */
 public record DiscordTokenResponse(
-    String accessToken, String tokenType, Integer expiresIn, String refreshToken, String scope) {}
+    @JsonProperty("access_token") String accessToken,
+    @JsonProperty("token_type") String tokenType,
+    @JsonProperty("expires_in") Integer expiresIn,
+    @JsonProperty("refresh_token") String refreshToken,
+    @JsonProperty("scope") String scope) {}

@@ -24,27 +24,28 @@ public class AuthService {
    * Discord ID로 회원 조회 또는 생성. 사용자명이 변경된 경우 업데이트.
    *
    * @param discordId Discord 사용자 ID
-   * @param username Discord 사용자명
+   * @param nickname Discord 사용자명
+   * @param email Discord 이메일 (nullable)
    * @return 기존 회원 (업데이트 포함) 또는 새로 생성된 회원
    */
   @Transactional
-  public Member findOrCreateMember(String discordId, String username) {
+  public Member findOrCreateMember(String discordId, String nickname, String email) {
     return memberRepository
         .findByDiscordId(discordId)
         .map(
             member -> {
               // 사용자명 변경 시 업데이트 (Dirty Checking으로 자동 반영)
-              if (!member.getDiscordUsername().equals(username)) {
-                log.info("Discord 사용자명 변경: {} -> {}", member.getDiscordUsername(), username);
-                member.updateDiscordUsername(username);
+              if (!member.getNickname().equals(nickname)) {
+                log.info("Discord 사용자명 변경: {} -> {}", member.getNickname(), nickname);
+                member.updateNickname(nickname);
               }
               log.debug("기존 회원 조회: discordId={}", discordId);
               return member;
             })
         .orElseGet(
             () -> {
-              log.info("신규 회원 생성: discordId={}, username={}", discordId, username);
-              return memberRepository.save(Member.create(discordId, username));
+              log.info("신규 회원 생성: discordId={}, username={}", discordId, nickname);
+              return memberRepository.save(Member.create(discordId, nickname, email));
             });
   }
 

@@ -2,7 +2,6 @@ package com.vatti.chzscout.backend.auth.application;
 
 import com.vatti.chzscout.backend.auth.domain.dto.DiscordTokenResponse;
 import com.vatti.chzscout.backend.auth.domain.dto.DiscordUserProfile;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -12,24 +11,28 @@ import org.springframework.web.client.RestClient;
 
 /** Discord OAuth API 클라이언트. */
 @Component
-@RequiredArgsConstructor
 public class DiscordOAuthClient {
-  private final RestClient restClient = RestClient.create();
+  private final RestClient restClient;
+  private final String clientId;
+  private final String clientSecret;
+  private final String redirectUri;
+  private final String tokenUrl;
+  private final String userInfoUrl;
 
-  @Value("${discord.oauth.client-id}")
-  private String clientId;
-
-  @Value("${discord.oauth.client-secret}")
-  private String clientSecret;
-
-  @Value("${discord.oauth.redirect-uri}")
-  private String redirectUri;
-
-  @Value("${discord.api.token-url}")
-  private String tokenUrl;
-
-  @Value("${discord.api.user-info-url}")
-  private String userInfoUrl;
+  public DiscordOAuthClient(
+      RestClient restClient,
+      @Value("${discord.oauth.client-id}") String clientId,
+      @Value("${discord.oauth.client-secret}") String clientSecret,
+      @Value("${discord.oauth.redirect-uri}") String redirectUri,
+      @Value("${discord.api.token-url}") String tokenUrl,
+      @Value("${discord.api.user-info-url}") String userInfoUrl) {
+    this.restClient = restClient;
+    this.clientId = clientId;
+    this.clientSecret = clientSecret;
+    this.redirectUri = redirectUri;
+    this.tokenUrl = tokenUrl;
+    this.userInfoUrl = userInfoUrl;
+  }
 
   public DiscordTokenResponse exchangeToken(String code) {
     MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
@@ -50,7 +53,7 @@ public class DiscordOAuthClient {
 
   public DiscordUserProfile getUserProfile(String accessToken) {
     return restClient
-        .post()
+        .get()
         .uri(userInfoUrl)
         .header("Authorization", "Bearer " + accessToken)
         .retrieve()

@@ -25,7 +25,20 @@ public class SecurityConfig {
   @Value("${cors.allowed-origins:http://localhost:5173}")
   private String allowedOrigins;
 
-  // TODO(human): CORS 설정 구현
+  @Bean
+  public CorsConfigurationSource corsConfigurationSource() {
+    CorsConfiguration configuration = new CorsConfiguration();
+    configuration.addAllowedOrigin(allowedOrigins);
+    configuration.setAllowedHeaders(
+        List.of("Authorization", "Content-Type", "Accept", "X-Requested-With"));
+    configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+    configuration.setExposedHeaders(
+        List.of("Authorization", "Content-Type", "Accept", "X-Requested-With"));
+    configuration.setAllowCredentials(true);
+    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration("/**", configuration);
+    return source;
+  }
 
   @Bean
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -44,7 +57,7 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers("/v1/**")
                     .permitAll()
-                    .requestMatchers("/auth/**")
+                    .requestMatchers("/v1/auth/**")
                     .permitAll()
                     .anyRequest()
                     .authenticated())

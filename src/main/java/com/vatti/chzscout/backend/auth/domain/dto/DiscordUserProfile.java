@@ -1,5 +1,7 @@
 package com.vatti.chzscout.backend.auth.domain.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 /**
  * Discord 사용자 프로필 응답 DTO.
  *
@@ -11,4 +13,9 @@ package com.vatti.chzscout.backend.auth.domain.dto;
  * @param verified 이메일 인증 여부
  */
 public record DiscordUserProfile(
-    String id, String username, String globalName, String avatar, String email, Boolean verified) {}
+    @JsonProperty("id") String id,
+    @JsonProperty("username") String username,
+    @JsonProperty("global_name") String globalName,
+    @JsonProperty("avatar") String avatar,
+    @JsonProperty("email") String email,
+    @JsonProperty("verified") Boolean verified) {}

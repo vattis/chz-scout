@@ -6,6 +6,7 @@ import com.vatti.chzscout.backend.auth.application.JwtTokenProvider;
 import com.vatti.chzscout.backend.auth.application.RefreshTokenService;
 import com.vatti.chzscout.backend.auth.domain.dto.DiscordTokenResponse;
 import com.vatti.chzscout.backend.auth.domain.dto.DiscordUserProfile;
+import com.vatti.chzscout.backend.auth.domain.dto.OAuthCallbackRequest;
 import com.vatti.chzscout.backend.auth.domain.dto.TokenResponse;
 import com.vatti.chzscout.backend.common.response.ApiResponse;
 import com.vatti.chzscout.backend.member.domain.entity.Member;
@@ -18,15 +19,15 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Discord OAuth 인증 및 토큰 관리 Controller. */
 @Slf4j
 @RestController
-@RequestMapping("/auth")
+@RequestMapping("/v1/auth")
 @RequiredArgsConstructor
 public class AuthController {
 
@@ -46,12 +47,13 @@ public class AuthController {
   }
 
   /** Discord OAuth 콜백 처리. 토큰 발급. */
-  @GetMapping("/callback")
-  public ResponseEntity<ApiResponse<TokenResponse>> handleCallback(@RequestParam String code) {
-    log.info("Discord OAuth 콜백 수신");
+  @PostMapping("/discord/callback")
+  public ResponseEntity<ApiResponse<TokenResponse>> handleCallback(
+      @RequestBody OAuthCallbackRequest request) {
+    log.info("Discord OAuth 콜백 수신: guildId={}", request.guildId());
 
     // Discord 토큰 교환
-    DiscordTokenResponse discordToken = discordOAuthClient.exchangeToken(code);
+    DiscordTokenResponse discordToken = discordOAuthClient.exchangeToken(request.code());
     log.debug("Discord 토큰 교환 완료");
 
     // Discord 사용자 정보 조회
@@ -59,7 +61,8 @@ public class AuthController {
     log.info("Discord 로그인 성공: discordId={}, username={}", profile.id(), profile.username());
 
     // Member 조회 또는 생성
-    Member member = authService.findOrCreateMember(profile.id(), profile.username());
+    Member member =
+        authService.findOrCreateMember(profile.id(), profile.username(), profile.email());
     log.debug("Member 처리 완료: uuid={}", member.getUuid());
 
     // JWT 토큰 생성
