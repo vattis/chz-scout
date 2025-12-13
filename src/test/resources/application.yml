@@ -44,7 +44,9 @@ discord:
     token-url: http://localhost:8080/mock/oauth2/token
     user-info-url: http://localhost:8080/mock/users/@me
 
-# JWT (test-only secret - safe to hardcode for tests)
+# JWT Configuration (test-only)
+# SECURITY: This is a test-only secret with NO production value.
+# Allowlisted in .gitleaks.toml - DO NOT use in production.
 jwt:
   secret: test-jwt-secret-key-must-be-at-least-256-bits-long-for-hs256
   access-token-expiration: 3600000
@@ -60,6 +62,7 @@ logging:
     com.vatti.chzscout: DEBUG
     org.hibernate.SQL: DEBUG
 
-# Encryption (test-only key - safe to hardcode for tests)
+# Encryption (test-only)
+# SECURITY: Allowlisted in .gitleaks.toml - DO NOT use in production.
 encryption:
   key: test-only-encryption-key-32chars!
