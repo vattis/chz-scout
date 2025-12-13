@@ -38,7 +38,7 @@ public class RefreshTokenService {
   }
 
   /**
-   * Refresh Token으로 새 Access Token 발급.
+   * Refresh Token으로 새 Access Token 발급
    *
    * @param refreshToken 클라이언트가 전달한 Refresh Token
    * @return 새로 발급된 Access Token
