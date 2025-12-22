@@ -2,6 +2,7 @@ package com.vatti.chzscout.backend.member.presentation;
 
 import com.vatti.chzscout.backend.auth.domain.CustomUserDetails;
 import com.vatti.chzscout.backend.common.response.ApiResponse;
+import com.vatti.chzscout.backend.member.application.usecase.MemberUseCase;
 import com.vatti.chzscout.backend.member.domain.dto.MemberResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -19,6 +20,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/v1/members")
 public class MemberController {
 
+  private final MemberUseCase memberUseCase;
+
   /**
    * 현재 로그인한 사용자 정보를 조회합니다.
    *
@@ -29,6 +32,6 @@ public class MemberController {
    */
   @GetMapping("/me")
   public ApiResponse<MemberResponse> getMe(@AuthenticationPrincipal CustomUserDetails userDetails) {
-    return ApiResponse.success(MemberResponse.from(userDetails.getMember()));
+    return ApiResponse.success(memberUseCase.getCurrentMember(userDetails.getMember()));
   }
 }

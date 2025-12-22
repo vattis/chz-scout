@@ -26,10 +26,12 @@ public class TagAutocompleteRedisStore {
   /**
    * 태그 목록을 Redis Sorted Set에 저장합니다.
    *
-   * <p>기존 데이터를 모두 삭제하고 새로운 데이터로 교체합니다. Member 형식: {tagName}:{usageCount}, Score: 0 (ZRANGEBYLEX 사용을
-   * 위해 동일 score)
+   * <p>태그 목록이 비어있지 않으면 기존 데이터를 모두 삭제하고 새로운 데이터로 교체합니다. 빈 리스트나 null이 전달되면 아무 작업도 수행하지 않으며, 기존 캐시
+   * 데이터가 유지됩니다.
    *
-   * @param tags 저장할 태그 목록
+   * <p>Member 형식: {tagName}:{usageCount}, Score: 0 (ZRANGEBYLEX 사용을 위해 동일 score)
+   *
+   * @param tags 저장할 태그 목록 (null 또는 빈 리스트일 경우 no-op)
    * @param tagType 태그 타입 (CATEGORY 또는 CUSTOM)
    */
   public void saveAll(List<Tag> tags, TagType tagType) {
