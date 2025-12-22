@@ -25,12 +25,12 @@ class TagControllerTest {
   @Mock private TagUseCase tagUseCase;
 
   @Nested
-  @DisplayName("autocomplete 메서드")
-  class Autocomplete {
+  @DisplayName("getSuggestions 메서드")
+  class GetSuggestions {
 
     @Test
-    @DisplayName("자동완성 결과를 성공적으로 반환한다")
-    void returnsAutocompleteResults() {
+    @DisplayName("태그 제안 결과를 성공적으로 반환한다")
+    void returnsSuggestionResults() {
       // given
       String prefix = "롤";
       TagType tagType = TagType.CUSTOM;
@@ -46,7 +46,7 @@ class TagControllerTest {
 
       // when
       ApiResponse<List<TagAutocompleteResponse>> response =
-          tagController.autocomplete(prefix, tagType, limit);
+          tagController.getSuggestions(prefix, tagType, limit);
 
       // then
       assertThat(response.isSuccess()).isTrue();
@@ -69,7 +69,7 @@ class TagControllerTest {
 
       // when
       ApiResponse<List<TagAutocompleteResponse>> response =
-          tagController.autocomplete(prefix, tagType, limit);
+          tagController.getSuggestions(prefix, tagType, limit);
 
       // then
       assertThat(response.isSuccess()).isTrue();
@@ -77,7 +77,7 @@ class TagControllerTest {
     }
 
     @Test
-    @DisplayName("CATEGORY 타입으로 자동완성을 요청한다")
+    @DisplayName("CATEGORY 타입으로 태그 제안을 요청한다")
     void searchesCategoryTags() {
       // given
       String prefix = "리그";
@@ -91,7 +91,7 @@ class TagControllerTest {
 
       // when
       ApiResponse<List<TagAutocompleteResponse>> response =
-          tagController.autocomplete(prefix, tagType, limit);
+          tagController.getSuggestions(prefix, tagType, limit);
 
       // then
       assertThat(response.isSuccess()).isTrue();
