@@ -1,7 +1,9 @@
 package com.vatti.chzscout.backend.tag.infrastructure;
 
 import com.vatti.chzscout.backend.tag.domain.entity.Tag;
+import com.vatti.chzscout.backend.tag.domain.entity.TagType;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -60,4 +62,30 @@ public interface TagRepository extends JpaRepository<Tag, Long> {
           "UPDATE tag SET deleted = false WHERE name IN :names AND tag_type = 'CATEGORY' AND deleted = true",
       nativeQuery = true)
   int restoreCategoryByNames(@Param("names") Set<String> names);
+
+  /** 활성 CUSTOM 태그 전체 조회 */
+  @Query("SELECT t FROM Tag t WHERE t.tagType = 'CUSTOM'")
+  List<Tag> findAllCustomTags();
+
+  /** 활성 CATEGORY 태그 전체 조회 */
+  @Query("SELECT t FROM Tag t WHERE t.tagType = 'CATEGORY'")
+  List<Tag> findAllCategoryTags();
+
+  /**
+   * 태그 이름과 타입으로 조회
+   *
+   * @param name 태그 이름
+   * @param tagType 태그 타입
+   * @return 해당 태그 (Optional)
+   */
+  Optional<Tag> findByNameAndTagType(String name, TagType tagType);
+
+  /**
+   * 여러 태그를 이름과 타입으로 일괄 조회
+   *
+   * @param names 태그 이름 목록
+   * @param tagType 태그 타입
+   * @return 매칭되는 태그 목록
+   */
+  List<Tag> findByNameInAndTagType(Set<String> names, TagType tagType);
 }

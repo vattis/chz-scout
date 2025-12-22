@@ -3,8 +3,11 @@ package com.vatti.chzscout.backend.stream.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 
+import com.vatti.chzscout.backend.stream.domain.AllFieldLiveDto;
 import com.vatti.chzscout.backend.stream.domain.ChzzkLiveResponse;
+import com.vatti.chzscout.backend.stream.fixture.AllFieldLiveDtoFixture;
 import com.vatti.chzscout.backend.stream.fixture.ChzzkLiveResponseFixture;
 import com.vatti.chzscout.backend.stream.infrastructure.redis.StreamRedisStore;
 import java.util.List;
@@ -82,6 +85,71 @@ class StreamCacheServiceTest {
       // then
       then(streamRedisStore).should().saveLiveStreams(streamsCaptor.capture());
       assertThat(streamsCaptor.getValue()).hasSize(60);
+    }
+  }
+
+  @Nested
+  @DisplayName("getLiveStreams 메서드 테스트")
+  class GetLiveStreamsTest {
+
+    @Test
+    @DisplayName("캐시 히트: Redis에 캐시된 데이터가 있으면 바로 반환한다")
+    void returnsCachedDataOnCacheHit() {
+      // given
+      List<AllFieldLiveDto> cachedStreams =
+          List.of(
+              AllFieldLiveDtoFixture.create(1),
+              AllFieldLiveDtoFixture.create(2),
+              AllFieldLiveDtoFixture.create(3));
+
+      given(streamRedisStore.findLiveStreams()).willReturn(cachedStreams);
+
+      // when
+      List<AllFieldLiveDto> result = streamCacheService.getLiveStreams();
+
+      // then
+      assertThat(result).hasSize(3);
+      assertThat(result.get(0).liveTitle()).isEqualTo("테스트 방송 제목 1");
+
+      then(chzzkApiClient).should(never()).getChzzkLive(null);
+    }
+
+    @Test
+    @DisplayName("캐시 미스: Redis에 데이터가 없으면 API 호출 후 캐시된 데이터 반환")
+    void fetchesFromApiOnCacheMiss() {
+      // given
+      List<AllFieldLiveDto> freshStreams =
+          List.of(AllFieldLiveDtoFixture.create(1), AllFieldLiveDtoFixture.create(2));
+
+      // 첫 번째 호출: null (캐시 미스)
+      // refreshLiveStreams 후 두 번째 호출: 데이터 반환
+      given(streamRedisStore.findLiveStreams()).willReturn(null).willReturn(freshStreams);
+
+      given(chzzkApiClient.getChzzkLive(null)).willReturn(ChzzkLiveResponseFixture.lastPage(2));
+
+      // when
+      List<AllFieldLiveDto> result = streamCacheService.getLiveStreams();
+
+      // then
+      assertThat(result).hasSize(2);
+
+      then(chzzkApiClient).should().getChzzkLive(null);
+      then(streamRedisStore).should().saveLiveStreams(streamsCaptor.capture());
+    }
+
+    @Test
+    @DisplayName("빈 캐시 리스트도 캐시 히트로 처리한다")
+    void emptyListIsCacheHit() {
+      // given
+      given(streamRedisStore.findLiveStreams()).willReturn(List.of());
+
+      // when
+      List<AllFieldLiveDto> result = streamCacheService.getLiveStreams();
+
+      // then
+      assertThat(result).isEmpty();
+
+      then(chzzkApiClient).should(never()).getChzzkLive(null);
     }
   }
 }
