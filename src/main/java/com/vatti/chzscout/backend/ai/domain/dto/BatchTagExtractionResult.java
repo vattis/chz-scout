@@ -31,6 +31,14 @@ public class BatchTagExtractionResult {
    * @return channelId → StreamTagResult 맵
    */
   public Map<String, StreamTagResult> toMap() {
-    return results.stream().collect(Collectors.toMap(StreamTagResult::channelId, result -> result));
+    return results.stream()
+        .collect(
+            Collectors.toMap(
+                StreamTagResult::channelId,
+                result -> result,
+                (existing, replacement) -> {
+                  throw new IllegalArgumentException(
+                      "Duplicate channelId found: " + existing.channelId());
+                }));
   }
 }

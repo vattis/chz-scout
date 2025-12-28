@@ -1,6 +1,7 @@
 package com.vatti.chzscout.backend.ai.prompt;
 
 import java.util.List;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * 의미 태그 추출을 위한 LLM 프롬프트 템플릿
@@ -14,9 +15,14 @@ import java.util.List;
  */
 public final class TagExtractionPrompts {
 
+  private static final JsonMapper JSON_MAPPER = JsonMapper.builder().build();
+
   /** 배치 처리용 방송 입력 DTO */
   public record StreamInput(
       String channelId, String title, String category, List<String> existingTags) {}
+
+  /** 배치 처리 요청 래퍼 */
+  private record StreamBatchRequest(List<StreamInput> streams) {}
 
   private TagExtractionPrompts() {
     // 인스턴스화 방지
@@ -265,57 +271,14 @@ public final class TagExtractionPrompts {
    * @return 포맷팅된 유저 프롬프트 (JSON 형식)
    */
   public static String formatStreamTagExtractionBatchUser(List<StreamInput> streams) {
-    StringBuilder json = new StringBuilder();
-    json.append("{\"streams\": [");
-
-    for (int i = 0; i < streams.size(); i++) {
-      StreamInput stream = streams.get(i);
-      json.append("{");
-      json.append("\"channelId\": \"").append(escapeJson(stream.channelId())).append("\", ");
-      json.append("\"title\": \"").append(escapeJson(stream.title())).append("\", ");
-      json.append("\"category\": \"").append(escapeJson(stream.category())).append("\", ");
-      json.append("\"existingTags\": [");
-      List<String> tags = stream.existingTags();
-      if (tags != null && !tags.isEmpty()) {
-        for (int j = 0; j < tags.size(); j++) {
-          json.append("\"").append(escapeJson(tags.get(j))).append("\"");
-          if (j < tags.size() - 1) {
-            json.append(", ");
-          }
-        }
-      }
-      json.append("]}");
-      if (i < streams.size() - 1) {
-        json.append(", ");
-      }
-    }
-
-    json.append("]}");
+    String json = JSON_MAPPER.writeValueAsString(new StreamBatchRequest(streams));
 
     return """
             다음 방송 정보들을 분석하여 각 방송별로 통합 태그를 추출해주세요.
 
             %s
             """
-        .formatted(json.toString());
-  }
-
-  /**
-   * JSON 문자열 이스케이프 처리
-   *
-   * @param input 원본 문자열
-   * @return 이스케이프 처리된 문자열
-   */
-  private static String escapeJson(String input) {
-    if (input == null) {
-      return "";
-    }
-    return input
-        .replace("\\", "\\\\")
-        .replace("\"", "\\\"")
-        .replace("\n", "\\n")
-        .replace("\r", "\\r")
-        .replace("\t", "\\t");
+        .formatted(json);
   }
 
   /**
