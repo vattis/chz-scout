@@ -49,6 +49,9 @@ dependencies {
 	// Discord Bot (JDA)
 	implementation 'net.dv8tion:JDA:5.5.1'
 
+	// OpenAI Java SDK
+	implementation 'com.openai:openai-java:4.13.0'
+
 	compileOnly 'org.projectlombok:lombok'
 	runtimeOnly 'com.mysql:mysql-connector-j'
 	annotationProcessor 'org.projectlombok:lombok'
