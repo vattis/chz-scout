@@ -81,7 +81,7 @@ class StreamCacheSchedulerTest {
       given(aiChatService.extractStreamTagsBatch(any())).willReturn(tagResults);
 
       // when
-      streamCacheScheduler.refreshLiveStreamsCache();
+      streamCacheScheduler.scheduledRefresh();
 
       // then
       // 1. API 호출 검증
@@ -140,8 +140,7 @@ class StreamCacheSchedulerTest {
       given(streamCacheService.fetchLiveStreams()).willThrow(new RuntimeException("API 호출 실패"));
 
       // when & then - 예외가 전파되지 않음
-      assertThatCode(() -> streamCacheScheduler.refreshLiveStreamsCache())
-          .doesNotThrowAnyException();
+      assertThatCode(() -> streamCacheScheduler.scheduledRefresh()).doesNotThrowAnyException();
 
       // tagService는 호출되지 않음
       verify(tagUseCase, never()).extractAndSaveTag(any());
@@ -159,8 +158,7 @@ class StreamCacheSchedulerTest {
       willThrow(new RuntimeException("태그 추출 실패")).given(tagUseCase).extractAndSaveTag(any());
 
       // when & then - 예외가 전파되지 않음
-      assertThatCode(() -> streamCacheScheduler.refreshLiveStreamsCache())
-          .doesNotThrowAnyException();
+      assertThatCode(() -> streamCacheScheduler.scheduledRefresh()).doesNotThrowAnyException();
 
       // 두 메서드 모두 호출됨
       verify(streamCacheService).fetchLiveStreams();
@@ -177,7 +175,7 @@ class StreamCacheSchedulerTest {
       given(streamCacheService.fetchLiveStreams()).willReturn(List.of());
 
       // when
-      streamCacheScheduler.refreshLiveStreamsCache();
+      streamCacheScheduler.scheduledRefresh();
 
       // then
       verify(streamCacheService).fetchLiveStreams();
@@ -217,7 +215,7 @@ class StreamCacheSchedulerTest {
       given(streamRedisStore.findEnrichedStreams()).willReturn(existingCache);
 
       // when
-      streamCacheScheduler.refreshLiveStreamsCache();
+      streamCacheScheduler.scheduledRefresh();
 
       // then
       // AI 호출 스킵
@@ -253,8 +251,7 @@ class StreamCacheSchedulerTest {
           .extractStreamTagsBatch(any());
 
       // when & then - 예외가 전파되지 않음
-      assertThatCode(() -> streamCacheScheduler.refreshLiveStreamsCache())
-          .doesNotThrowAnyException();
+      assertThatCode(() -> streamCacheScheduler.scheduledRefresh()).doesNotThrowAnyException();
 
       // AI 호출 시도됨
       verify(aiChatService).extractStreamTagsBatch(any());
@@ -282,8 +279,7 @@ class StreamCacheSchedulerTest {
           .saveEnrichedStreams(any());
 
       // when & then - 예외가 전파되지 않음
-      assertThatCode(() -> streamCacheScheduler.refreshLiveStreamsCache())
-          .doesNotThrowAnyException();
+      assertThatCode(() -> streamCacheScheduler.scheduledRefresh()).doesNotThrowAnyException();
 
       // Redis 저장 시도됨
       verify(streamRedisStore).saveEnrichedStreams(any());
