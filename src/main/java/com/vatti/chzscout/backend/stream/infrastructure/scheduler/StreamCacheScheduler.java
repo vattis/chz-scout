@@ -45,7 +45,7 @@ public class StreamCacheScheduler {
     refreshLiveStreamsCache(false);
   }
 
-  /** 5분마다 치지직 API를 호출하여 생방송 목록 캐시 갱신. */
+  /** 10분마다 치지직 API를 호출하여 생방송 목록 캐시 갱신. */
   @Scheduled(fixedRate = 600_000, initialDelay = 600_000)
   public void scheduledRefresh() {
     refreshLiveStreamsCache(true);

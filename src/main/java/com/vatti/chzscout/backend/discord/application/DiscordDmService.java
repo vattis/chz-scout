@@ -23,7 +23,7 @@ public class DiscordDmService {
 
   private final JDA jda;
 
-  private static String BASIC_LIVE = "https://chzzk.naver.com/live/";
+  private static final String BASIC_LIVE = "https://chzzk.naver.com/live/";
 
   /**
    * 유저에게 방송 알림 DM을 발송합니다.
