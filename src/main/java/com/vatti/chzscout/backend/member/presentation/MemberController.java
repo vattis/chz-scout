@@ -7,7 +7,9 @@ import com.vatti.chzscout.backend.member.domain.dto.MemberResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -33,5 +35,19 @@ public class MemberController {
   @GetMapping("/me")
   public ApiResponse<MemberResponse> getMe(@AuthenticationPrincipal CustomUserDetails userDetails) {
     return ApiResponse.success(memberUseCase.getCurrentMember(userDetails.getMember()));
+  }
+
+  /**
+   * 알림 수신 설정을 변경합니다.
+   *
+   * @param enabled 알림 수신 여부 (true: 수신, false: 수신 안함)
+   * @param userDetails 인증된 사용자 정보 (JWT 토큰에서 추출)
+   * @return 변경된 알림 수신 여부
+   */
+  @PatchMapping("/me/notification")
+  public ApiResponse<Boolean> updateNotification(
+      @RequestParam boolean enabled, @AuthenticationPrincipal CustomUserDetails userDetails) {
+    return ApiResponse.success(
+        memberUseCase.updateNotificationEnabled(userDetails.getMember(), enabled));
   }
 }
