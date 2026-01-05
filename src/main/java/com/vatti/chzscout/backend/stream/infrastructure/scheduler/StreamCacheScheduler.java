@@ -7,6 +7,7 @@ import com.vatti.chzscout.backend.stream.application.StreamCacheService;
 import com.vatti.chzscout.backend.stream.domain.AllFieldLiveDto;
 import com.vatti.chzscout.backend.stream.domain.EnrichedStreamDto;
 import com.vatti.chzscout.backend.stream.domain.event.StreamCacheRefreshedEvent;
+import com.vatti.chzscout.backend.stream.domain.event.StreamNotificationTriggerEvent;
 import com.vatti.chzscout.backend.stream.infrastructure.redis.StreamRedisStore;
 import com.vatti.chzscout.backend.tag.application.usecase.TagUseCase;
 import java.util.ArrayList;
@@ -37,16 +38,25 @@ public class StreamCacheScheduler {
   private final AiChatService aiChatService;
   private final StreamRedisStore streamRedisStore;
 
-  /** 애플리케이션 시작 시 즉시 캐시 초기화. */
+  /** 애플리케이션 시작 시 즉시 캐시 초기화. 알림은 발송하지 않음. */
   @EventListener(ApplicationReadyEvent.class)
   public void onApplicationReady() {
     log.info("Application ready, initializing live streams cache");
-    refreshLiveStreamsCache();
+    refreshLiveStreamsCache(false);
   }
 
-  /** 5분마다 치지직 API를 호출하여 생방송 목록 캐시 갱신. */
-  @Scheduled(fixedRate = 300_000, initialDelay = 300_000)
-  public void refreshLiveStreamsCache() {
+  /** 10분마다 치지직 API를 호출하여 생방송 목록 캐시 갱신. */
+  @Scheduled(fixedRate = 600_000, initialDelay = 600_000)
+  public void scheduledRefresh() {
+    refreshLiveStreamsCache(true);
+  }
+
+  /**
+   * 생방송 목록 캐시를 갱신합니다.
+   *
+   * @param sendNotification true면 알림 이벤트 발행, false면 캐시 갱신만 수행
+   */
+  private void refreshLiveStreamsCache(boolean sendNotification) {
     log.info("Starting scheduled live streams cache refresh");
     try {
       // 1. 치지직 API에서 생방송 목록 가져오기
@@ -74,6 +84,11 @@ public class StreamCacheScheduler {
       log.info("Redis에 {}개 Enriched 방송 저장 완료", finalEnriched.size());
 
       eventPublisher.publishEvent(new StreamCacheRefreshedEvent());
+
+      if (sendNotification && !changedIds.isEmpty()) {
+        eventPublisher.publishEvent(new StreamNotificationTriggerEvent(changedIds));
+        log.info("알림 이벤트 발행 - {}개 변경된 방송", changedIds.size());
+      }
     } catch (Exception e) {
       log.error("Failed to refresh live streams cache", e);
     }

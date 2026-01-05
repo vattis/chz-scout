@@ -80,4 +80,39 @@ class MemberControllerTest {
       then(memberUseCase).should().getCurrentMember(memberWithoutEmail);
     }
   }
+
+  @Nested
+  @DisplayName("updateNotification 메서드")
+  class UpdateNotification {
+
+    @Test
+    @DisplayName("알림 설정을 활성화하면 true를 반환한다")
+    void enableNotificationReturnsTrue() {
+      // given
+      given(memberUseCase.updateNotificationEnabled(testMember, true)).willReturn(true);
+
+      // when
+      ApiResponse<Boolean> response = memberController.updateNotification(true, userDetails);
+
+      // then
+      assertThat(response.isSuccess()).isTrue();
+      assertThat(response.getData()).isTrue();
+      then(memberUseCase).should().updateNotificationEnabled(testMember, true);
+    }
+
+    @Test
+    @DisplayName("알림 설정을 비활성화하면 false를 반환한다")
+    void disableNotificationReturnsFalse() {
+      // given
+      given(memberUseCase.updateNotificationEnabled(testMember, false)).willReturn(false);
+
+      // when
+      ApiResponse<Boolean> response = memberController.updateNotification(false, userDetails);
+
+      // then
+      assertThat(response.isSuccess()).isTrue();
+      assertThat(response.getData()).isFalse();
+      then(memberUseCase).should().updateNotificationEnabled(testMember, false);
+    }
+  }
 }

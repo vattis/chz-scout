@@ -137,23 +137,18 @@ auth/
 
 ### Discord Authentication Flow
 
-Discord OAuth와 Bot 초대를 **동시에 처리**하여 사용자 경험을 단순화합니다.
+Discord OAuth 로그인과 Bot 초대를 **분리**하여 유저가 필요할 때 봇을 초대할 수 있도록 합니다.
 
 #### 인증 플로우
 
 ```
 [사용자] ──① 웹사이트 방문──▶ [웹 UI]
               │
-         ② "Discord로 시작하기" 클릭
+         ② "Discord로 로그인" 클릭
               │
               ▼
 ┌─────────────────────────────────────┐
-│     Discord 승인 화면 (한 번에)      │
-│                                     │
-│  ┌───────────────────────────────┐  │
-│  │ 🤖 chz-scout 봇을 추가할 서버: │  │
-│  │    [서버 선택 ▼]              │  │
-│  └───────────────────────────────┘  │
+│     Discord OAuth 승인 화면         │
 │                                     │
 │  ┌───────────────────────────────┐  │
 │  │ 👤 다음 정보에 접근합니다:      │  │
@@ -168,32 +163,51 @@ Discord OAuth와 Bot 초대를 **동시에 처리**하여 사용자 경험을 �
               ▼
 ┌─────────────────────────────────────┐
 │           서버 처리                  │
-│  • Bot이 선택한 서버에 입장          │
 │  • discordId로 Member 생성/조회      │
-│  • 세션 생성 및 웹 UI 리다이렉트      │
+│  • JWT 토큰 발급                     │
+│  • 웹 UI 리다이렉트                  │
 └─────────────────────────────────────┘
               │
          ④ 태그 설정 (웹 UI)
               │
               ▼
+┌─────────────────────────────────────┐
+│  [봇 초대하기] 버튼 클릭 (선택)       │
+│  → 별도 Discord 초대 화면으로 이동   │
+│  → 서버 선택 후 봇 초대              │
+└─────────────────────────────────────┘
+              │
+              ▼
 [Bot] ──⑤ DM 알림 발송──▶ [사용자]
-       (같은 서버에 있으므로 가능)
+       (공통 서버가 있는 경우에만 가능)
 ```
 
-#### OAuth + Bot 동시 초대 URL
+#### OAuth 로그인 URL
 
 ```
 https://discord.com/api/oauth2/authorize
   ?client_id={CLIENT_ID}
   &redirect_uri={REDIRECT_URI}
   &response_type=code
-  &scope=identify+bot
+  &scope=identify
+```
+
+| 파라미터 | 값 | 설명 |
+|----------|-----|------|
+| `scope` | `identify` | 사용자 정보 조회만 (로그인용) |
+
+#### Bot 초대 URL (별도)
+
+```
+https://discord.com/api/oauth2/authorize
+  ?client_id={CLIENT_ID}
+  &scope=bot
   &permissions=19456
 ```
 
 | 파라미터 | 값 | 설명 |
 |----------|-----|------|
-| `scope` | `identify+bot` | OAuth 로그인 + 봇 초대 동시 처리 |
+| `scope` | `bot` | 봇 초대만 |
 | `permissions` | `19456` | Send Messages + Embed Links + Use Slash Commands |
 
 #### 필요한 OAuth Scopes
@@ -201,7 +215,6 @@ https://discord.com/api/oauth2/authorize
 | Scope | 필수 | 용도 |
 |-------|------|------|
 | `identify` | ✅ | 사용자 기본 정보 (ID, 사용자명, 아바타) |
-| `bot` | ✅ | 봇을 서버에 초대 |
 | `email` | ❌ | 선택적 - 이메일 기반 기능 시 |
 
 #### 필요한 Bot Permissions
@@ -217,7 +230,11 @@ https://discord.com/api/oauth2/authorize
 #### DM 발송 조건
 
 Bot이 사용자에게 DM을 보내려면 **공통 서버**가 필요합니다.
-OAuth + Bot 동시 초대 방식을 사용하면 사용자가 봇을 서버에 초대하므로 DM 발송이 가능해집니다.
+
+- **봇 미초대 상태**: 로그인, 태그 설정 가능. DM 알림 불가.
+- **봇 초대 완료 상태**: 로그인, 태그 설정, DM 알림 모두 가능.
+
+웹 UI에서 "봇 초대하기" 버튼을 제공하여 유저가 DM 알림을 원할 때 봇을 초대하도록 유도합니다.
 
 ## Tech Stack
 
