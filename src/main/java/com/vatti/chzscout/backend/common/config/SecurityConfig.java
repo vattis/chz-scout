@@ -60,7 +60,7 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers("/v1/streams/**")
                     .permitAll()
-                    .requestMatchers("/v1/tags/autocomplete/**")
+                    .requestMatchers("/v1/tags/suggestions")
                     .permitAll()
                     // 인증 필요
                     .requestMatchers("/v1/members/**", "/v1/tags/**")
