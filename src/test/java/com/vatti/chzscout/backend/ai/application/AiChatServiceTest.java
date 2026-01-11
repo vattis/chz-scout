@@ -138,10 +138,9 @@ class AiChatServiceTest {
       CompletableFuture<UserMessageAnalysisResult> future =
           aiChatService.analyzeUserMessageAsync(userMessage);
 
-      // then
+      // then - failsWithin()으로 완료를 기다린 후 예외 검증 (CI 환경 타이밍 이슈 방지)
       assertThat(future)
-          .isCompletedExceptionally()
-          .failsWithin(java.time.Duration.ofSeconds(1))
+          .failsWithin(java.time.Duration.ofSeconds(5))
           .withThrowableOfType(ExecutionException.class)
           .withCauseInstanceOf(RuntimeException.class)
           .withMessageContaining("AI 서비스 오류");
