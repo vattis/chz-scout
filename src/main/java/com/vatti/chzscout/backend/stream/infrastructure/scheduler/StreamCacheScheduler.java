@@ -97,7 +97,11 @@ public class StreamCacheScheduler {
   /** 기존 Redis에 저장된 Enriched 데이터를 Map으로 조회. */
   private Map<String, EnrichedStreamDto> getExistingEnrichedMap() {
     return streamRedisStore.findEnrichedStreams().stream()
-        .collect(Collectors.toMap(EnrichedStreamDto::channelId, Function.identity()));
+        .collect(
+            Collectors.toMap(
+                EnrichedStreamDto::channelId,
+                Function.identity(),
+                (existing, duplicate) -> existing)); // 중복 시 첫 번째 값 유지
   }
 
   /**
@@ -146,7 +150,8 @@ public class StreamCacheScheduler {
                       return tagResult != null
                           ? EnrichedStreamDto.from(dto, tagResult)
                           : EnrichedStreamDto.fromWithoutAi(dto);
-                    }));
+                    },
+                    (existing, duplicate) -> existing)); // API 중복 응답 시 첫 번째 값 유지
 
     log.info("AI 태그 추출 완료 - {}개 방송 처리", changedStreams.size());
     return result;
