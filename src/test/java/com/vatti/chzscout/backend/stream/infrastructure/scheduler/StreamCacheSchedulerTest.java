@@ -3,20 +3,20 @@ package com.vatti.chzscout.backend.stream.infrastructure.scheduler;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
-import com.vatti.chzscout.backend.ai.application.AiChatService;
-import com.vatti.chzscout.backend.ai.domain.dto.StreamTagResult;
-import com.vatti.chzscout.backend.ai.prompt.TagExtractionPrompts;
+import com.vatti.chzscout.backend.ai.application.StreamEmbeddingSyncService;
 import com.vatti.chzscout.backend.stream.application.StreamCacheService;
 import com.vatti.chzscout.backend.stream.domain.AllFieldLiveDto;
 import com.vatti.chzscout.backend.stream.domain.EnrichedStreamDto;
 import com.vatti.chzscout.backend.stream.domain.event.StreamCacheRefreshedEvent;
+import com.vatti.chzscout.backend.stream.domain.event.StreamNotificationTriggerEvent;
 import com.vatti.chzscout.backend.stream.fixture.AllFieldLiveDtoFixture;
-import com.vatti.chzscout.backend.stream.fixture.EnrichedStreamDtoFixture;
 import com.vatti.chzscout.backend.stream.infrastructure.redis.StreamRedisStore;
 import com.vatti.chzscout.backend.tag.application.usecase.TagUseCase;
 import java.util.ArrayList;
@@ -38,15 +38,44 @@ class StreamCacheSchedulerTest {
   @Mock private TagUseCase tagUseCase;
   @Mock private ApplicationEventPublisher eventPublisher;
   @Mock private StreamRedisStore streamRedisStore;
-  @Mock private AiChatService aiChatService;
+  @Mock private StreamEmbeddingSyncService streamEmbeddingSyncService;
 
   @InjectMocks private StreamCacheScheduler streamCacheScheduler;
+
+  @Nested
+  @DisplayName("onApplicationReady 메서드 테스트")
+  class OnApplicationReady {
+
+    @Test
+    @DisplayName("애플리케이션 시작 시 캐시를 초기화하지만 알림 이벤트는 발행하지 않는다")
+    void initializesCacheWithoutNotification() {
+      // given
+      List<AllFieldLiveDto> streams = List.of(AllFieldLiveDtoFixture.create(1));
+      given(streamCacheService.fetchLiveStreams()).willReturn(streams);
+      given(streamRedisStore.detectChanges(streams))
+          .willReturn(
+              new StreamRedisStore.StreamChangeResult(
+                  Set.of("channel_1"), // 신규 방송
+                  Set.of(),
+                  Set.of()));
+
+      // when
+      streamCacheScheduler.onApplicationReady();
+
+      // then
+      verify(streamCacheService).fetchLiveStreams();
+      verify(streamRedisStore).saveEnrichedStreams(anyList());
+      verify(eventPublisher).publishEvent(any(StreamCacheRefreshedEvent.class));
+      // 알림 이벤트는 발행되지 않음 (sendNotification=false)
+      verify(eventPublisher, never()).publishEvent(any(StreamNotificationTriggerEvent.class));
+    }
+  }
 
   @Nested
   @DisplayName("refreshLiveStreamsCache 메서드 테스트")
   class RefreshLiveStreamsCache {
     @Test
-    @DisplayName("정상적으로 api를 호출하고 태그를 추출한 후 이벤트를 발행한다")
+    @DisplayName("정상적으로 api를 호출하고 임베딩 동기화 후 이벤트를 발행한다")
     void refreshLiveStreamsCache() {
       // given
       List<AllFieldLiveDto> streams = new ArrayList<>();
@@ -58,27 +87,10 @@ class StreamCacheSchedulerTest {
       given(streamRedisStore.detectChanges(streams))
           .willReturn(
               new StreamRedisStore.StreamChangeResult(
-                  Set.copyOf(streamChannelIds.subList(0, 3)), // newStreams: 0,1,2 (이전에 없던 신규)
-                  Set.copyOf(streamChannelIds.subList(3, 5)), // changedStreams: 3,4 (태그 변경됨)
-                  Set.of("channel_10", "channel_11") // endedStreams: 10,11 (종료됨)
+                  Set.copyOf(streamChannelIds.subList(0, 3)), // newStreams: 0,1,2
+                  Set.copyOf(streamChannelIds.subList(3, 5)), // changedStreams: 3,4
+                  Set.of("channel_10", "channel_11") // endedStreams: 10,11
                   ));
-
-      // 기존 캐시 데이터 - 이전 주기에 저장된 방송들 (3~11)
-      // 신규(0,1,2)는 이전에 없었고, 종료(10,11)는 이전에 있었음
-      List<EnrichedStreamDto> existingCache = new ArrayList<>();
-      for (int i = 3; i < 12; i++) {
-        existingCache.add(EnrichedStreamDtoFixture.create(i));
-      }
-      given(streamRedisStore.findEnrichedStreams()).willReturn(existingCache);
-
-      // AI 태그 추출 결과 - changedIds (0,1,2,3,4)에 대해 반환
-      List<StreamTagResult> tagResults = new ArrayList<>();
-      for (int i = 0; i < 5; i++) {
-        tagResults.add(
-            new StreamTagResult(
-                "channel_" + i, List.of("롤", "게임"), List.of("롤", "게임", "MOBA", "e스포츠"), 0.9));
-      }
-      given(aiChatService.extractStreamTagsBatch(any())).willReturn(tagResults);
 
       // when
       streamCacheScheduler.scheduledRefresh();
@@ -90,22 +102,10 @@ class StreamCacheSchedulerTest {
       // 2. 태그 DB 저장 검증
       verify(tagUseCase).extractAndSaveTag(streams);
 
-      // 3. AI 태그 추출 호출 검증 - changedIds(0~4)에 해당하는 5개만 전달
-      @SuppressWarnings("unchecked")
-      ArgumentCaptor<List<TagExtractionPrompts.StreamInput>> inputCaptor =
-          ArgumentCaptor.forClass(List.class);
-      verify(aiChatService).extractStreamTagsBatch(inputCaptor.capture());
+      // 3. 임베딩 동기화 호출 검증
+      verify(streamEmbeddingSyncService).syncEmbeddings(anyList(), anySet(), anySet());
 
-      List<TagExtractionPrompts.StreamInput> capturedInputs = inputCaptor.getValue();
-      assertThat(capturedInputs).hasSize(5);
-
-      List<String> inputChannelIds =
-          capturedInputs.stream().map(TagExtractionPrompts.StreamInput::channelId).toList();
-      assertThat(inputChannelIds)
-          .containsExactlyInAnyOrder(
-              "channel_0", "channel_1", "channel_2", "channel_3", "channel_4");
-
-      // 4. Redis 저장 검증 - 최종 10개 방송 저장 (종료된 10,11 제외)
+      // 4. Redis 저장 검증 - 10개 방송 저장
       @SuppressWarnings("unchecked")
       ArgumentCaptor<List<EnrichedStreamDto>> enrichedCaptor = ArgumentCaptor.forClass(List.class);
       verify(streamRedisStore).saveEnrichedStreams(enrichedCaptor.capture());
@@ -134,7 +134,7 @@ class StreamCacheSchedulerTest {
     }
 
     @Test
-    @DisplayName("API 호출 중 예외 발생 시 예외를 삼키고 태그 추출과 이벤트 발행을 하지 않는다")
+    @DisplayName("API 호출 중 예외 발생 시 예외를 삼키고 후속 로직을 실행하지 않는다")
     void swallowsExceptionWhenApiCallFails() {
       // given
       given(streamCacheService.fetchLiveStreams()).willThrow(new RuntimeException("API 호출 실패"));
@@ -183,14 +183,14 @@ class StreamCacheSchedulerTest {
       // 후속 로직 모두 스킵
       verify(tagUseCase, never()).extractAndSaveTag(any());
       verify(streamRedisStore, never()).detectChanges(any());
-      verify(aiChatService, never()).extractStreamTagsBatch(any());
+      verify(streamEmbeddingSyncService, never()).syncEmbeddings(anyList(), anySet(), anySet());
       verify(streamRedisStore, never()).saveEnrichedStreams(any());
       verify(eventPublisher, never()).publishEvent(any());
     }
 
     @Test
-    @DisplayName("변경된 방송이 없으면 AI 호출을 스킵하고 기존 캐시를 재사용한다")
-    void skipsAiCallWhenNoChanges() {
+    @DisplayName("변경된 방송이 없어도 Redis에 저장하고 이벤트를 발행한다")
+    void savesToRedisEvenWhenNoChanges() {
       // given
       List<AllFieldLiveDto> streams = new ArrayList<>();
       for (int i = 0; i < 5; i++) {
@@ -207,21 +207,14 @@ class StreamCacheSchedulerTest {
                   Set.of() // endedStreams: 없음
                   ));
 
-      // 기존 캐시 데이터 - 모든 방송이 이전에 저장되어 있음
-      List<EnrichedStreamDto> existingCache = new ArrayList<>();
-      for (int i = 0; i < 5; i++) {
-        existingCache.add(EnrichedStreamDtoFixture.create(i));
-      }
-      given(streamRedisStore.findEnrichedStreams()).willReturn(existingCache);
-
       // when
       streamCacheScheduler.scheduledRefresh();
 
       // then
-      // AI 호출 스킵
-      verify(aiChatService, never()).extractStreamTagsBatch(any());
+      // 임베딩 동기화는 빈 changedIds로 호출됨
+      verify(streamEmbeddingSyncService).syncEmbeddings(anyList(), anySet(), anySet());
 
-      // Redis 저장 검증 - 기존 캐시 재사용
+      // Redis 저장 검증
       @SuppressWarnings("unchecked")
       ArgumentCaptor<List<EnrichedStreamDto>> enrichedCaptor = ArgumentCaptor.forClass(List.class);
       verify(streamRedisStore).saveEnrichedStreams(enrichedCaptor.capture());
@@ -234,8 +227,8 @@ class StreamCacheSchedulerTest {
     }
 
     @Test
-    @DisplayName("AI 서비스 예외 발생 시 예외를 삼키고 이벤트를 발행하지 않는다")
-    void swallowsExceptionWhenAiServiceFails() {
+    @DisplayName("임베딩 동기화 예외 발생 시 예외를 삼키고 이벤트를 발행하지 않는다")
+    void swallowsExceptionWhenEmbeddingSyncFails() {
       // given
       List<AllFieldLiveDto> streams = List.of(AllFieldLiveDtoFixture.create(1));
       given(streamCacheService.fetchLiveStreams()).willReturn(streams);
@@ -245,19 +238,17 @@ class StreamCacheSchedulerTest {
                   Set.of("channel_1"), // 신규 방송
                   Set.of(),
                   Set.of()));
-      given(streamRedisStore.findEnrichedStreams()).willReturn(List.of());
-      willThrow(new RuntimeException("AI 서비스 오류"))
-          .given(aiChatService)
-          .extractStreamTagsBatch(any());
+      willThrow(new RuntimeException("임베딩 동기화 오류"))
+          .given(streamEmbeddingSyncService)
+          .syncEmbeddings(anyList(), anySet(), anySet());
 
       // when & then - 예외가 전파되지 않음
       assertThatCode(() -> streamCacheScheduler.scheduledRefresh()).doesNotThrowAnyException();
 
-      // AI 호출 시도됨
-      verify(aiChatService).extractStreamTagsBatch(any());
+      // 임베딩 동기화 호출 시도됨
+      verify(streamEmbeddingSyncService).syncEmbeddings(anyList(), anySet(), anySet());
 
-      // Redis 저장 및 이벤트 발행되지 않음
-      verify(streamRedisStore, never()).saveEnrichedStreams(any());
+      // 이벤트 발행되지 않음
       verify(eventPublisher, never()).publishEvent(any());
     }
 
@@ -270,10 +261,6 @@ class StreamCacheSchedulerTest {
       given(streamRedisStore.detectChanges(streams))
           .willReturn(
               new StreamRedisStore.StreamChangeResult(Set.of("channel_1"), Set.of(), Set.of()));
-      given(streamRedisStore.findEnrichedStreams()).willReturn(List.of());
-      given(aiChatService.extractStreamTagsBatch(any()))
-          .willReturn(
-              List.of(new StreamTagResult("channel_1", List.of("게임"), List.of("게임", "롤"), 0.9)));
       willThrow(new RuntimeException("Redis 저장 오류"))
           .given(streamRedisStore)
           .saveEnrichedStreams(any());

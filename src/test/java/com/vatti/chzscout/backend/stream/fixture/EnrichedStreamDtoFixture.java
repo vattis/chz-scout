@@ -100,4 +100,18 @@ public class EnrichedStreamDtoFixture {
         List.of("음악", "노래"),
         List.of("음악", "노래", "보컬", "라이브"));
   }
+
+  /** 특정 channelId로 Enriched 데이터 생성. */
+  public static EnrichedStreamDto createWithChannelId(String channelId) {
+    return new EnrichedStreamDto(
+        1,
+        channelId,
+        "테스트 방송 " + channelId,
+        "https://thumbnail.example.com/" + channelId + ".jpg",
+        1000,
+        "스트리머_" + channelId,
+        "리그 오브 레전드",
+        List.of("롤", "게임"),
+        List.of("롤", "게임", "e스포츠"));
+  }
 }
