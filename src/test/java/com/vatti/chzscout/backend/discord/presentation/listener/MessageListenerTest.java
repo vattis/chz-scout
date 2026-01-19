@@ -2,19 +2,20 @@ package com.vatti.chzscout.backend.discord.presentation.listener;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.vatti.chzscout.backend.ai.application.AiChatService;
+import com.vatti.chzscout.backend.ai.application.VectorRecommendService;
 import com.vatti.chzscout.backend.ai.domain.dto.UserMessageAnalysisResult;
 import com.vatti.chzscout.backend.ai.domain.event.AiMessageResponseReceivedEvent;
-import com.vatti.chzscout.backend.stream.application.service.StreamRecommendationService;
 import com.vatti.chzscout.backend.stream.domain.Stream;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
@@ -39,7 +40,7 @@ class MessageListenerTest {
 
   @Mock ApplicationEventPublisher eventPublisher;
   @Mock AiChatService aiChatService;
-  @Mock StreamRecommendationService streamRecommendationService;
+  @Mock VectorRecommendService vectorRecommendService;
 
   @InjectMocks MessageListener messageListener;
 
@@ -74,7 +75,7 @@ class MessageListenerTest {
 
       // then
       verify(channel, never()).sendMessage(anyString());
-      verify(aiChatService, never()).analyzeUserMessageAsync(anyString());
+      verify(aiChatService, never()).analyzeUserMessage(anyString());
       verify(eventPublisher, never()).publishEvent(any());
     }
 
@@ -91,7 +92,7 @@ class MessageListenerTest {
       // then
       verify(channel).sendMessage(contains("너무 짧아요"));
       verify(messageCreateAction).queue();
-      verify(aiChatService, never()).analyzeUserMessageAsync(anyString());
+      verify(aiChatService, never()).analyzeUserMessage(anyString());
     }
 
     @Test
@@ -108,26 +109,26 @@ class MessageListenerTest {
       // then
       verify(channel).sendMessage(contains("너무 길어요"));
       verify(messageCreateAction).queue();
-      verify(aiChatService, never()).analyzeUserMessageAsync(anyString());
+      verify(aiChatService, never()).analyzeUserMessage(anyString());
     }
 
     @Test
-    @DisplayName("추천 요청 시 방송 추천 결과를 이벤트로 발행한다")
-    void publishesRecommendationResults() {
+    @DisplayName("추천 요청 시 벡터 기반 방송 추천 결과를 이벤트로 발행한다")
+    void publishesVectorRecommendationResults() {
       // given
       given(author.isBot()).willReturn(false);
       given(message.getContentRaw()).willReturn("롤 방송 추천해줘");
 
       UserMessageAnalysisResult analysisResult =
           new UserMessageAnalysisResult("recommendation", List.of(), List.of("롤"), null);
-      given(aiChatService.analyzeUserMessageAsync("롤 방송 추천해줘"))
-          .willReturn(CompletableFuture.completedFuture(analysisResult));
+      given(aiChatService.analyzeUserMessage("롤 방송 추천해줘")).willReturn(analysisResult);
 
       List<Stream> streams =
           List.of(
               new Stream(1, "롤 방송1", "thumb1.jpg", 1000, "ch1", "스트리머1", "리그 오브 레전드", List.of("롤")),
               new Stream(2, "롤 방송2", "thumb2.jpg", 500, "ch2", "스트리머2", "리그 오브 레전드", List.of("롤")));
-      given(streamRecommendationService.recommend(List.of("롤"))).willReturn(streams);
+      // 검색 쿼리: "롤 롤 롤 롤 롤" (5번 반복)
+      given(vectorRecommendService.recommend(anyString(), eq(5))).willReturn(streams);
 
       // when
       messageListener.onMessageReceived(event);
@@ -153,9 +154,8 @@ class MessageListenerTest {
 
       UserMessageAnalysisResult analysisResult =
           new UserMessageAnalysisResult("recommendation", List.of(), List.of("특이한게임"), null);
-      given(aiChatService.analyzeUserMessageAsync("특이한게임 방송 추천해줘"))
-          .willReturn(CompletableFuture.completedFuture(analysisResult));
-      given(streamRecommendationService.recommend(List.of("특이한게임"))).willReturn(List.of());
+      given(aiChatService.analyzeUserMessage("특이한게임 방송 추천해줘")).willReturn(analysisResult);
+      given(vectorRecommendService.recommend(anyString(), eq(5))).willReturn(List.of());
 
       // when
       messageListener.onMessageReceived(event);
@@ -171,16 +171,15 @@ class MessageListenerTest {
     }
 
     @Test
-    @DisplayName("other 의도면 GPT 응답을 이벤트로 발행한다")
-    void publishesDirectReplyForOther() {
+    @DisplayName("greeting 의도면 GPT 응답을 이벤트로 발행한다")
+    void publishesDirectReplyForGreeting() {
       // given
       given(author.isBot()).willReturn(false);
       given(message.getContentRaw()).willReturn("안녕하세요");
 
       UserMessageAnalysisResult analysisResult =
-          new UserMessageAnalysisResult("other", List.of(), List.of(), "안녕하세요! 무엇을 도와드릴까요?");
-      given(aiChatService.analyzeUserMessageAsync("안녕하세요"))
-          .willReturn(CompletableFuture.completedFuture(analysisResult));
+          new UserMessageAnalysisResult("greeting", List.of(), List.of(), "안녕하세요! 무엇을 도와드릴까요?");
+      given(aiChatService.analyzeUserMessage("안녕하세요")).willReturn(analysisResult);
 
       // when
       messageListener.onMessageReceived(event);
@@ -193,45 +192,133 @@ class MessageListenerTest {
       AiMessageResponseReceivedEvent capturedEvent = captor.getValue();
       assertThat(capturedEvent.channelId()).isEqualTo(123456789L);
       assertThat(capturedEvent.response()).isEqualTo("안녕하세요! 무엇을 도와드릴까요?");
-      verify(streamRecommendationService, never()).recommend(any());
+      verify(vectorRecommendService, never()).recommend(anyString(), anyInt());
     }
 
     @Test
-    @DisplayName("AI 서비스 예외 발생 시 에러 메시지를 전송한다")
-    void sendsErrorWhenAiServiceFails() {
+    @DisplayName("other 의도면 fallback 메시지를 이벤트로 발행한다")
+    void publishesFallbackForOther() {
       // given
       given(author.isBot()).willReturn(false);
-      given(message.getContentRaw()).willReturn("롤 방송 추천해줘");
-      given(aiChatService.analyzeUserMessageAsync(anyString()))
-          .willReturn(CompletableFuture.failedFuture(new RuntimeException("AI 서비스 오류")));
+      given(message.getContentRaw()).willReturn("뭐해?");
+
+      UserMessageAnalysisResult analysisResult =
+          new UserMessageAnalysisResult("other", List.of(), List.of(), null);
+      given(aiChatService.analyzeUserMessage("뭐해?")).willReturn(analysisResult);
 
       // when
       messageListener.onMessageReceived(event);
 
       // then
-      verify(channel).sendMessage(contains("죄송해요"));
-      verify(messageCreateAction).queue();
-      verify(eventPublisher, never()).publishEvent(any());
+      ArgumentCaptor<AiMessageResponseReceivedEvent> captor =
+          ArgumentCaptor.forClass(AiMessageResponseReceivedEvent.class);
+      verify(eventPublisher).publishEvent(captor.capture());
+
+      AiMessageResponseReceivedEvent capturedEvent = captor.getValue();
+      assertThat(capturedEvent.response()).contains("요청을 이해하지 못했어요");
+      verify(vectorRecommendService, never()).recommend(anyString(), anyInt());
     }
 
     @Test
-    @DisplayName("의미 태그와 키워드를 합쳐서 추천 서비스에 전달한다")
-    void combinesSemanticTagsAndKeywords() {
+    @DisplayName("AI 서비스 예외 발생 시 에러 메시지를 이벤트로 발행한다")
+    void publishesErrorWhenAiServiceFails() {
+      // given
+      given(author.isBot()).willReturn(false);
+      given(message.getContentRaw()).willReturn("롤 방송 추천해줘");
+      given(aiChatService.analyzeUserMessage(anyString()))
+          .willThrow(new RuntimeException("AI 서비스 오류"));
+
+      // when
+      messageListener.onMessageReceived(event);
+
+      // then
+      ArgumentCaptor<AiMessageResponseReceivedEvent> captor =
+          ArgumentCaptor.forClass(AiMessageResponseReceivedEvent.class);
+      verify(eventPublisher).publishEvent(captor.capture());
+
+      AiMessageResponseReceivedEvent capturedEvent = captor.getValue();
+      assertThat(capturedEvent.response()).contains("죄송해요");
+    }
+
+    @Test
+    @DisplayName("semantic_tags와 keywords를 조합하여 검색 쿼리를 생성한다")
+    void buildsSearchQueryWithTagsAndKeywords() {
       // given
       given(author.isBot()).willReturn(false);
       given(message.getContentRaw()).willReturn("빡센 롤 방송 추천해줘");
 
       UserMessageAnalysisResult analysisResult =
           new UserMessageAnalysisResult("recommendation", List.of("빡겜"), List.of("롤"), null);
-      given(aiChatService.analyzeUserMessageAsync("빡센 롤 방송 추천해줘"))
-          .willReturn(CompletableFuture.completedFuture(analysisResult));
-      given(streamRecommendationService.recommend(any())).willReturn(List.of());
+      given(aiChatService.analyzeUserMessage("빡센 롤 방송 추천해줘")).willReturn(analysisResult);
+      given(vectorRecommendService.recommend(anyString(), eq(5))).willReturn(List.of());
+
+      // when
+      messageListener.onMessageReceived(event);
+
+      // then - 검색 쿼리: "롤 롤 롤 롤 롤 빡겜" (primary keyword 5번 + semantic tags)
+      ArgumentCaptor<String> queryCaptor = ArgumentCaptor.forClass(String.class);
+      verify(vectorRecommendService).recommend(queryCaptor.capture(), eq(5));
+
+      String capturedQuery = queryCaptor.getValue();
+      assertThat(capturedQuery).contains("롤 롤 롤 롤 롤"); // 5번 반복
+      assertThat(capturedQuery).contains("빡겜"); // semantic tag 포함
+    }
+
+    @Test
+    @DisplayName("여러 키워드가 있으면 첫 번째만 5번 반복하고 나머지는 1번씩 포함한다")
+    void buildsSearchQueryWithMultipleKeywords() {
+      // given
+      given(author.isBot()).willReturn(false);
+      given(message.getContentRaw()).willReturn("여자 롤 방송 추천해줘");
+
+      UserMessageAnalysisResult analysisResult =
+          new UserMessageAnalysisResult(
+              "recommendation", List.of("실력방송"), List.of("롤", "여자"), null);
+      given(aiChatService.analyzeUserMessage("여자 롤 방송 추천해줘")).willReturn(analysisResult);
+      given(vectorRecommendService.recommend(anyString(), eq(5))).willReturn(List.of());
+
+      // when
+      messageListener.onMessageReceived(event);
+
+      // then - 검색 쿼리: "롤 롤 롤 롤 롤 여자 실력방송"
+      ArgumentCaptor<String> queryCaptor = ArgumentCaptor.forClass(String.class);
+      verify(vectorRecommendService).recommend(queryCaptor.capture(), eq(5));
+
+      String capturedQuery = queryCaptor.getValue();
+      // 첫 번째 키워드(롤) 5번 반복 확인
+      long rolCount =
+          capturedQuery.split(" ").length
+              - capturedQuery.replace("롤", "").split(" ").length
+              + (capturedQuery.contains("롤") ? 1 : 0);
+      assertThat(capturedQuery).startsWith("롤 롤 롤 롤 롤");
+      // 두 번째 키워드(여자)와 semantic tag(실력방송) 포함 확인
+      assertThat(capturedQuery).contains("여자");
+      assertThat(capturedQuery).contains("실력방송");
+    }
+
+    @Test
+    @DisplayName("search 의도이고 reply가 있으면 해당 응답을 이벤트로 발행한다")
+    void publishesReplyForSearch() {
+      // given
+      given(author.isBot()).willReturn(false);
+      given(message.getContentRaw()).willReturn("우왁굳 방송해?");
+
+      UserMessageAnalysisResult analysisResult =
+          new UserMessageAnalysisResult(
+              "search", List.of(), List.of("우왁굳"), "현재 우왁굳님은 방송 중이 아닙니다.");
+      given(aiChatService.analyzeUserMessage("우왁굳 방송해?")).willReturn(analysisResult);
 
       // when
       messageListener.onMessageReceived(event);
 
       // then
-      verify(streamRecommendationService).recommend(List.of("빡겜", "롤"));
+      ArgumentCaptor<AiMessageResponseReceivedEvent> captor =
+          ArgumentCaptor.forClass(AiMessageResponseReceivedEvent.class);
+      verify(eventPublisher).publishEvent(captor.capture());
+
+      AiMessageResponseReceivedEvent capturedEvent = captor.getValue();
+      assertThat(capturedEvent.response()).contains("우왁굳님은 방송 중이 아닙니다");
+      verify(vectorRecommendService, never()).recommend(anyString(), anyInt());
     }
   }
 }

@@ -57,7 +57,7 @@ class AiChatServiceTest {
 
       given(
               openAiChatClient.chatWithStructuredOutput(
-                  eq(TagExtractionPrompts.USER_MESSAGE_ANALYSIS_SYSTEM),
+                  eq(TagExtractionPrompts.USER_INTENT_ANALYSIS_SYSTEM),
                   eq(userMessage),
                   eq(UserMessageAnalysisResult.class)))
           .willReturn(expectedResult);
@@ -88,7 +88,7 @@ class AiChatServiceTest {
 
       given(
               openAiChatClient.chatWithStructuredOutput(
-                  eq(TagExtractionPrompts.USER_MESSAGE_ANALYSIS_SYSTEM),
+                  eq(TagExtractionPrompts.USER_INTENT_ANALYSIS_SYSTEM),
                   eq(userMessage),
                   eq(UserMessageAnalysisResult.class)))
           .willReturn(expectedResult);
@@ -113,7 +113,7 @@ class AiChatServiceTest {
 
       given(
               openAiChatClient.chatWithStructuredOutput(
-                  eq(TagExtractionPrompts.USER_MESSAGE_ANALYSIS_SYSTEM),
+                  eq(TagExtractionPrompts.USER_INTENT_ANALYSIS_SYSTEM),
                   eq(userMessage),
                   eq(UserMessageAnalysisResult.class)))
           .willReturn(expectedResult);
@@ -135,7 +135,7 @@ class AiChatServiceTest {
 
       given(
               openAiChatClient.chatWithStructuredOutput(
-                  eq(TagExtractionPrompts.USER_MESSAGE_ANALYSIS_SYSTEM),
+                  eq(TagExtractionPrompts.USER_INTENT_ANALYSIS_SYSTEM),
                   eq(userMessage),
                   eq(UserMessageAnalysisResult.class)))
           .willThrow(new RuntimeException("AI 서비스 오류"));

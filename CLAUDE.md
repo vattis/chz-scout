@@ -48,7 +48,7 @@ chz-scout는 **치지직(Chzzk) 실시간 스트리밍 추천 Discord 챗봇**�
       ↓
 [User Interaction] → [Tag Settings] → [Web UI]
       ↓
-[Notification] ← [Tag Matching] ← [MySQL]
+[Notification] ← [Tag Matching] ← [PostgreSQL]
 ```
 
 ### Data Flow
@@ -66,14 +66,14 @@ chz-scout는 **치지직(Chzzk) 실시간 스트리밍 추천 Discord 챗봇**�
    - 조건 충족 시 Discord 알림 전송
 
 4. **Persistence Layer** (infrastructure)
-   - MySQL: 유저 정보, 태그 설정, 알림 이력
+   - PostgreSQL + pgvector: 유저 정보, 태그 설정, 알림 이력, 벡터 임베딩
    - Redis: 실시간 방송 캐시, 세션 관리
 
 ### Infrastructure
 
 - **CI/CD**: GitHub Actions (자동 빌드, 테스트, 배포)
 - **Caching**: Redis (방송 정보, 세션)
-- **Database**: MySQL (영속 데이터)
+- **Database**: PostgreSQL + pgvector (영속 데이터, 벡터 검색)
 - **External APIs**:
   - 치지직 Open API (방송 정보)
   - Discord Bot API (메시지 전송)
@@ -248,7 +248,7 @@ Bot이 사용자에게 DM을 보내려면 **공통 서버**가 필요합니다.
 - Gradle
 
 ### Data Storage
-- **MySQL**: 유저 정보, 태그 설정, 알림 이력 등 영속 데이터 저장
+- **PostgreSQL + pgvector**: 유저 정보, 태그 설정, 알림 이력 등 영속 데이터 저장 및 벡터 유사도 검색
 - **Redis**: 실시간 방송 정보 캐싱, 세션 관리
 
 ### External Integrations

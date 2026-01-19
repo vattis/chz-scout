@@ -29,6 +29,10 @@ logging:
     com.vatti.chzscout: DEBUG
     org.hibernate.SQL: DEBUG
 
+# Encryption (dummy key for test)
+encryption:
+  key: test-encryption-key-12345
+
 # External API Keys (dummy values for test)
 chzzk:
   api:
@@ -45,3 +49,9 @@ openai:
     key: test-api-key
     model: gpt-5-nano
     base-url: https://api.openai.com
+
+# Embedding Settings (테스트용)
+embedding:
+  model: text-embedding-3-small
+  dimensions: 1536
+  batch-size: 100
